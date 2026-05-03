@@ -11,7 +11,7 @@ def calculate_value(prob, odds):
 
 
 # -----------------------------
-# TRACK ODDS HISTORY
+# TRACK ODDS
 # -----------------------------
 
 def track_odds(history, match_name, odds, match_date=None, match_time=None):
@@ -53,7 +53,7 @@ def get_line_movement(history, match_name):
 
 
 # -----------------------------
-# MAIN ANALYSIS
+# ANALYZER MAIN
 # -----------------------------
 
 def analyze_match(match, history, home_stats, away_stats):
@@ -89,7 +89,7 @@ def analyze_match(match, history, home_stats, away_stats):
 
                     score = value + (movement * 0.15)
 
-                    # FILTER (estable)
+                    # 🔥 FILTER INTELIGENTE
                     if (
                         prob_model >= 0.58 and
                         value >= 0.06 and
