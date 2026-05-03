@@ -5,7 +5,9 @@ from api.mapping import find_team_id
 from logic.analyzer import analyze_match, get_line_movement
 from bot.telegram import send_message
 from model.dataset import save_example
+from config import ODDS_API_KEY
 
+print("KEY:", ODDS_API_KEY)
 
 # -----------------------------
 # LOAD / SAVE JSON HISTORY
