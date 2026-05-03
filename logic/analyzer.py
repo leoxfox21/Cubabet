@@ -70,17 +70,22 @@ def analyze_match(match, history, home_stats, away_stats):
                     value = calculate_value(prob_model, odds)
 
                     # score final
-                    score = value + (movement * 0.1)
+score = value + (movement * 0.15)
 
-                    # filtros
-                    if value > 0.05 and movement > 0:
-                        picks.append({
-                            "match": match_name,
-                            "odds": odds,
-                            "prob": prob_model,
-                            "value": value,
-                            "movement": movement,
-                            "score": score
-                        })
+# 🔥 NUEVO FILTRO INTELIGENTE
+if (
+    prob_model >= 0.58 and      # modelo confía
+    value >= 0.06 and           # hay value real
+    movement > 0 and            # mercado confirma
+    score >= 0.10               # fuerza total mínima
+):
+    picks.append({
+        "match": match_name,
+        "odds": odds,
+        "prob": prob_model,
+        "value": value,
+        "movement": movement,
+        "score": score
+    })
 
     return picks, history
