@@ -2,7 +2,7 @@ name: Run Bot
 
 on:
   schedule:
-    - cron: "0 */6 * * *"  # cada 6 horas
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,9 @@ jobs:
       - name: Clonar repo
         uses: actions/checkout@v3
 
+      - name: Crear carpeta data
+        run: mkdir -p data
+
       - name: Instalar Python
         uses: actions/setup-python@v4
         with:
@@ -22,4 +25,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Ejecutar bot
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          FOOTBALL_API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python main.py
