@@ -65,8 +65,10 @@ def analyze_match(match, history, home_stats, away_stats):
     match_name = f'{match["home_team"]} vs {match["away_team"]}'
 
     expected_goals = predict_goals(home_stats, away_stats)
-    prob_model = goal_probability(expected_goals)
+from model.predict import predict
 
+prob_model = predict(home_stats, away_stats)
+    
     for bookmaker in match.get("bookmakers", []):
         for market in bookmaker.get("markets", []):
             if market["key"] == "totals":
