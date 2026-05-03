@@ -2,7 +2,7 @@ import json
 from api.odds import get_odds
 from api.stats import get_team_stats, get_last_match_goals
 from api.mapping import find_team_id
-from logic.analyzer import analyze_match
+from logic.analyzer import analyze_match, get_line_movement
 from bot.telegram import send_message
 from model.dataset import save_example
 
@@ -20,11 +20,21 @@ def save_data(data):
         json.dump(data, f, indent=2)
 
 
+def extract_odds(match):
+    for bookmaker in match.get("bookmakers", []):
+        for market in bookmaker.get("markets", []):
+            if market["key"] == "totals":
+                for outcome in market["outcomes"]:
+                    if outcome["name"] == "Over" and outcome["point"] == 2.5:
+                        return outcome["price"]
+    return None
+
+
 def main():
-    odds = get_odds()
+    odds_data = get_odds()
     history = load_data()
 
-    for match in odds:
+    for match in odds_data:
 
         home_name = match["home_team"]
         away_name = match["away_team"]
@@ -39,28 +49,35 @@ def main():
         home_stats = get_team_stats(home_id)
         away_stats = get_team_stats(away_id)
 
-        # análisis
+        # análisis (esto ya actualiza history internamente)
         picks, history = analyze_match(
-            match, history, home_stats, away_stats
+            match,
+            history,
+            home_stats,
+            away_stats
         )
 
-        # 🔹 DATASET REAL
+        match_name = f"{home_name} vs {away_name}"
+
+        # movement para dataset
+        movement = get_line_movement(history, match_name)
+
+        # odds actuales
+        odds_value = extract_odds(match)
+
+        # resultado real
         result_goals = get_last_match_goals(home_id)
 
-        if result_goals is not None:
-            # sacar odds promedio del mercado
-odds_value = None
+        # guardar dataset
+        if result_goals is not None and odds_value is not None:
+            save_example(
+                home_stats,
+                away_stats,
+                result_goals,
+                odds_value,
+                movement
+            )
 
-for bookmaker in match.get("bookmakers", []):
-    for market in bookmaker.get("markets", []):
-        if market["key"] == "totals":
-            for outcome in market["outcomes"]:
-                if outcome["name"] == "Over" and outcome["point"] == 2.5:
-                    odds_value = outcome["price"]
-                    break
-
-if result_goals is not None and odds_value:
-    save_example(home_stats, away_stats, result_goals, odds_value)
         # enviar picks
         for pick in picks:
             msg = f"""
@@ -70,7 +87,6 @@ if result_goals is not None and odds_value:
 Over 2.5
 
 Odds: {pick['odds']}
-xG: {round(pick['expected_goals'],2)}
 
 Prob: {round(pick['prob']*100,1)}%
 Value: {round(pick['value']*100,1)}%
