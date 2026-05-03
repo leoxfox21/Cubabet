@@ -48,8 +48,19 @@ def main():
         result_goals = get_last_match_goals(home_id)
 
         if result_goals is not None:
-            save_example(home_stats, away_stats, result_goals)
+            # sacar odds promedio del mercado
+odds_value = None
 
+for bookmaker in match.get("bookmakers", []):
+    for market in bookmaker.get("markets", []):
+        if market["key"] == "totals":
+            for outcome in market["outcomes"]:
+                if outcome["name"] == "Over" and outcome["point"] == 2.5:
+                    odds_value = outcome["price"]
+                    break
+
+if result_goals is not None and odds_value:
+    save_example(home_stats, away_stats, result_goals, odds_value)
         # enviar picks
         for pick in picks:
             msg = f"""
