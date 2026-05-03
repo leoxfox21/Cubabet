@@ -1,10 +1,12 @@
 from datetime import datetime
+from model.predict import predict
+
 
 def calculate_value(prob, odds):
     return (prob * odds) - 1
 
 
-# tracking odds
+# 🔹 Guardar historial de cuotas
 def track_odds(history, match_name, odds):
     now = datetime.utcnow().isoformat()
 
@@ -19,80 +21,66 @@ def track_odds(history, match_name, odds):
     return history
 
 
+# 🔹 Movimiento de cuota
 def get_line_movement(history, match_name):
     data = history.get(match_name, {}).get("over25", [])
 
     if len(data) < 2:
         return 0
 
-    return data[0]["odds"] - data[-1]["odds"]
+    first = data[0]["odds"]
+    last = data[-1]["odds"]
+
+    return first - last  # positivo = baja cuota
 
 
-# 🔥 NUEVO MODELO
-def predict_goals(home_stats, away_stats):
-    home_attack = home_stats["attack"]
-    home_defense = home_stats["defense"]
-
-    away_attack = away_stats["attack"]
-    away_defense = away_stats["defense"]
-
-    # fórmula mejorada
-    expected_home_goals = (home_attack + away_defense) / 2
-    expected_away_goals = (away_attack + home_defense) / 2
-
-    total_goals = expected_home_goals + expected_away_goals
-
-    return total_goals
-
-
-def goal_probability(expected_goals):
-    # aproximación simple mejorada
-    if expected_goals >= 3:
-        return 0.70
-    elif expected_goals >= 2.5:
-        return 0.60
-    elif expected_goals >= 2:
-        return 0.52
-    elif expected_goals >= 1.5:
-        return 0.45
-    else:
-        return 0.35
-
-
+# 🔹 ANALISIS PRINCIPAL
 def analyze_match(match, history, home_stats, away_stats):
     picks = []
 
     match_name = f'{match["home_team"]} vs {match["away_team"]}'
 
-    expected_goals = predict_goals(home_stats, away_stats)
-from model.predict import predict
-
-prob_model = predict(home_stats, away_stats)
-    
     for bookmaker in match.get("bookmakers", []):
         for market in bookmaker.get("markets", []):
-            if market["key"] == "totals":
 
-                for outcome in market["outcomes"]:
-                    if outcome["name"] == "Over" and outcome["point"] == 2.5:
-                        odds = outcome["price"]
+            if market["key"] != "totals":
+                continue
 
-                        history = track_odds(history, match_name, odds)
+            for outcome in market["outcomes"]:
 
-                        value = calculate_value(prob_model, odds)
-                        movement = get_line_movement(history, match_name)
+                if outcome["name"] == "Over" and outcome["point"] == 2.5:
 
-                        score = value + (movement * 0.1)
+                    odds = outcome["price"]
 
-                        if value > 0.05 and movement > 0 and expected_goals > 2:
-                            picks.append({
-                                "match": match_name,
-                                "odds": odds,
-                                "expected_goals": expected_goals,
-                                "prob": prob_model,
-                                "value": value,
-                                "movement": movement,
-                                "score": score
-                            })
+                    # guardar historial
+                    history = track_odds(history, match_name, odds)
+
+                    # movement
+                    movement = get_line_movement(history, match_name)
+
+                    # modelo IA
+                    prob_model = predict(
+                        home_stats,
+                        away_stats,
+                        odds,
+                        movement
+                    )
+
+                    # value
+                    value = calculate_value(prob_model, odds)
+
+                    # score final
+                    score = value + (movement * 0.1)
+
+                    # filtros
+                    if value > 0.05 and movement > 0:
+                        picks.append({
+                            "match": match_name,
+                            "odds": odds,
+                            "prob": prob_model,
+                            "value": value,
+                            "movement": movement,
+                            "score": score
+                        })
 
     return picks, history
