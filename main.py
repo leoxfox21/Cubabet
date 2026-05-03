@@ -26,10 +26,19 @@ def main():
 
     for match in odds:
 
-        # ⚠️ TEMPORAL (luego arreglamos mapping real)
-        home_stats = get_team_stats(1)
-        away_stats = get_team_stats(2)
+        from api.mapping import find_team_id
 
+home_name = match["home_team"]
+away_name = match["away_team"]
+
+home_id = find_team_id(home_name)
+away_id = find_team_id(away_name)
+
+if not home_id or not away_id:
+    continue
+
+home_stats = get_team_stats(home_id)
+away_stats = get_team_stats(away_id)
         picks, history = analyze_match(match, history, home_stats, away_stats)
 
         for pick in picks:
