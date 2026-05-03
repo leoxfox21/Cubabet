@@ -8,16 +8,34 @@ def get_team_stats(team_id):
     res = requests.get(url, headers=headers)
     data = res.json()
 
-    goals = []
+    scored = []
+    conceded = []
 
     for match in data.get("matches", [])[:5]:
-        home = match["score"]["fullTime"]["home"]
-        away = match["score"]["fullTime"]["away"]
 
-        if home is not None and away is not None:
-            goals.append(home + away)
+        home_id = match["homeTeam"]["id"]
+        away_id = match["awayTeam"]["id"]
 
-    if not goals:
-        return 0
+        home_goals = match["score"]["fullTime"]["home"]
+        away_goals = match["score"]["fullTime"]["away"]
 
-    return sum(goals) / len(goals)
+        if home_goals is None or away_goals is None:
+            continue
+
+        if team_id == home_id:
+            scored.append(home_goals)
+            conceded.append(away_goals)
+        else:
+            scored.append(away_goals)
+            conceded.append(home_goals)
+
+    if not scored:
+        return {
+            "attack": 0,
+            "defense": 0
+        }
+
+    return {
+        "attack": sum(scored) / len(scored),
+        "defense": sum(conceded) / len(conceded)
+    }
