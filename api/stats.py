@@ -39,3 +39,25 @@ def get_team_stats(team_id):
         "attack": sum(scored) / len(scored),
         "defense": sum(conceded) / len(conceded)
     }
+
+def get_last_match_goals(team_id):
+    url = f"https://api.football-data.org/v4/teams/{team_id}/matches?status=FINISHED"
+    headers = {"X-Auth-Token": FOOTBALL_API_KEY}
+
+    res = requests.get(url, headers=headers)
+    data = res.json()
+
+    matches = data.get("matches", [])
+
+    if not matches:
+        return None
+
+    last = matches[0]
+
+    home = last["score"]["fullTime"]["home"]
+    away = last["score"]["fullTime"]["away"]
+
+    if home is None or away is None:
+        return None
+
+    return home + away
