@@ -1,8 +1,10 @@
 import json
 from api.odds import get_odds
 from api.stats import get_team_stats
+from api.mapping import find_team_id
 from logic.analyzer import analyze_match
 from bot.telegram import send_message
+from model.dataset import save_example
 
 
 def load_data():
@@ -22,25 +24,35 @@ def main():
     odds = get_odds()
     history = load_data()
 
-    all_picks = []
-
     for match in odds:
 
-        from api.mapping import find_team_id
+        home_name = match["home_team"]
+        away_name = match["away_team"]
 
-home_name = match["home_team"]
-away_name = match["away_team"]
+        home_id = find_team_id(home_name)
+        away_id = find_team_id(away_name)
 
-home_id = find_team_id(home_name)
-away_id = find_team_id(away_name)
+        # si no encuentra equipo → saltar
+        if not home_id or not away_id:
+            continue
 
-if not home_id or not away_id:
-    continue
+        # obtener stats reales
+        home_stats = get_team_stats(home_id)
+        away_stats = get_team_stats(away_id)
 
-home_stats = get_team_stats(home_id)
-away_stats = get_team_stats(away_id)
+        # analizar picks
         picks, history = analyze_match(match, history, home_stats, away_stats)
 
+        # 🔹 GUARDAR DATASET (temporal, luego lo mejoramos)
+        expected_goals = (
+            home_stats["attack"] + away_stats["attack"]
+        )
+
+        result_goals = expected_goals  # ⚠️ placeholder
+
+        save_example(home_stats, away_stats, result_goals)
+
+        # enviar picks
         for pick in picks:
             msg = f"""
 ⚽ SERIE A PICK
@@ -58,7 +70,6 @@ Movement: {round(pick['movement'],3)}
 Score: {round(pick['score'],3)}
 """
             send_message(msg)
-            all_picks.append(pick)
 
     save_data(history)
 
