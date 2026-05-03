@@ -1,16 +1,16 @@
 import json
+from datetime import datetime
+
 from api.odds import get_odds
 from api.stats import get_team_stats, get_last_match_goals
 from api.mapping import find_team_id
-from logic.analyzer import analyze_match, get_line_movement
+from logic.analyzer import analyze_match, get_line_movement, track_odds
 from bot.telegram import send_message
 from model.dataset import save_example
-from config import ODDS_API_KEY
 
-print("KEY:", ODDS_API_KEY)
 
 # -----------------------------
-# LOAD / SAVE JSON HISTORY
+# LOAD / SAVE HISTORY
 # -----------------------------
 
 def load_data():
@@ -27,7 +27,28 @@ def save_data(data):
 
 
 # -----------------------------
-# EXTRACT ODDS SAFE
+# PARSE MATCH TIME
+# -----------------------------
+
+def parse_match_time(match):
+    try:
+        dt = match.get("commence_time")
+        if not dt:
+            return None, None
+
+        parsed = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+
+        date = parsed.date().isoformat()
+        time = parsed.time().strftime("%H:%M")
+
+        return date, time
+
+    except:
+        return None, None
+
+
+# -----------------------------
+# EXTRACT ODDS
 # -----------------------------
 
 def extract_odds(match):
@@ -45,23 +66,21 @@ def extract_odds(match):
 
 
 # -----------------------------
-# MAIN LOGIC
+# MAIN
 # -----------------------------
 
 def main():
 
     odds_data = get_odds()
 
-    # 🔴 seguridad: evitar crash si API falla
     if not isinstance(odds_data, list):
-        print("❌ Odds API error or empty response")
+        print("❌ Invalid odds response")
         return
 
     history = load_data()
 
     for match in odds_data:
 
-        # 🔴 seguridad tipo
         if not isinstance(match, dict):
             continue
 
@@ -71,24 +90,23 @@ def main():
         if not home_name or not away_name:
             continue
 
-        # -----------------------------
-        # MAP TEAM IDS
-        # -----------------------------
+        # time
+        match_date, match_time = parse_match_time(match)
+
+        match_name = f"{home_name} vs {away_name} ({match_date} {match_time})"
+
+        # team IDs
         home_id = find_team_id(home_name)
         away_id = find_team_id(away_name)
 
         if not home_id or not away_id:
             continue
 
-        # -----------------------------
-        # STATS
-        # -----------------------------
+        # stats
         home_stats = get_team_stats(home_id)
         away_stats = get_team_stats(away_id)
 
-        # -----------------------------
-        # ANALYSIS
-        # -----------------------------
+        # analysis
         picks, history = analyze_match(
             match,
             history,
@@ -96,17 +114,11 @@ def main():
             away_stats
         )
 
-        match_name = f"{home_name} vs {away_name}"
-
-        # -----------------------------
-        # MARKET DATA
-        # -----------------------------
+        # odds + movement
         odds_value = extract_odds(match)
         movement = get_line_movement(history, match_name)
 
-        # -----------------------------
-        # DATASET (IA TRAINING)
-        # -----------------------------
+        # dataset
         result_goals = get_last_match_goals(home_id)
 
         if result_goals is not None and odds_value is not None:
@@ -118,9 +130,7 @@ def main():
                 movement
             )
 
-        # -----------------------------
-        # SEND PICKS
-        # -----------------------------
+        # send picks
         for pick in picks:
 
             msg = f"""
@@ -142,10 +152,6 @@ Score: {round(pick['score'], 3)}
 
     save_data(history)
 
-
-# -----------------------------
-# ENTRY POINT
-# -----------------------------
 
 if __name__ == "__main__":
     main()
