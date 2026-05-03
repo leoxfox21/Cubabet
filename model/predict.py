@@ -9,24 +9,36 @@ model = xgb.XGBClassifier()
 if os.path.exists(MODEL_FILE):
     model.load_model(MODEL_FILE)
 else:
-    model = None  # fallback
+    model = None
 
 
 def predict(home_stats, away_stats, odds, movement):
 
     if model is None:
-        # fallback simple si no hay modelo
         return 0.55
 
+    home_attack = home_stats["attack"]
+    home_defense = home_stats["defense"]
+    away_attack = away_stats["attack"]
+    away_defense = away_stats["defense"]
+
+    attack_diff = home_attack - away_defense
+    away_diff = away_attack - home_defense
+
+    power = home_attack + away_attack
+    weakness = home_defense + away_defense
+
     X = np.array([[
-        home_stats["attack"],
-        home_stats["defense"],
-        away_stats["attack"],
-        away_stats["defense"],
+        home_attack,
+        home_defense,
+        away_attack,
+        away_defense,
+        attack_diff,
+        away_diff,
+        power,
+        weakness,
         odds,
         movement
     ]])
 
-    prob = model.predict_proba(X)[0][1]
-
-    return prob
+    return model.predict_proba(X)[0][1]
