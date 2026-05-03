@@ -4,13 +4,14 @@ from datetime import datetime
 from api.odds import get_odds
 from api.stats import get_team_stats, get_last_match_goals
 from api.mapping import find_team_id
-from logic.analyzer import analyze_match, get_line_movement
+from logic.analyzer import analyze_match, get_line_movement, track_odds
 from bot.telegram import send_message
 from model.dataset import save_example
+from bot.telegram_commands import send_start_report
 
 
 # -----------------------------
-# LOAD / SAVE HISTORY
+# LOAD / SAVE
 # -----------------------------
 
 def load_data():
@@ -70,32 +71,24 @@ def main():
 
     odds_data = get_odds()
 
-    # 🔥 DEBUG 1
-    print("MATCHES FOUND:", len(odds_data) if odds_data else 0)
-
     if not isinstance(odds_data, list):
-        print("❌ Odds API invalid response")
-        print(odds_data)
+        print("❌ Invalid odds response")
         return
 
     history = load_data()
 
-    picks_total = 0
+    matches_count = len(odds_data)
+    all_picks = []
 
     for match in odds_data:
 
-        # 🔥 DEBUG 2
-        print("PROCESSING MATCH:", match.get("home_team"), "vs", match.get("away_team"))
-
         if not isinstance(match, dict):
-            print("SKIPPED: not dict")
             continue
 
         home_name = match.get("home_team")
         away_name = match.get("away_team")
 
         if not home_name or not away_name:
-            print("SKIPPED: missing teams")
             continue
 
         match_date, match_time = parse_match_time(match)
@@ -107,14 +100,13 @@ def main():
         away_id = find_team_id(away_name)
 
         if not home_id or not away_id:
-            print("SKIPPED: no team ID")
             continue
 
         # stats
         home_stats = get_team_stats(home_id)
         away_stats = get_team_stats(away_id)
 
-        # analysis
+        # analyze
         picks, history = analyze_match(
             match,
             history,
@@ -122,10 +114,8 @@ def main():
             away_stats
         )
 
-        # 🔥 DEBUG 3
-        print("PICKS THIS MATCH:", len(picks))
-
-        picks_total += len(picks)
+        # store picks global
+        all_picks.extend(picks)
 
         # odds + movement
         odds_value = extract_odds(match)
@@ -143,7 +133,7 @@ def main():
                 movement
             )
 
-        # send telegram
+        # send telegram picks
         for pick in picks:
 
             msg = f"""
@@ -163,8 +153,11 @@ Score: {round(pick['score'], 3)}
 
             send_message(msg)
 
-    # 🔥 DEBUG FINAL
-    print("TOTAL PICKS GENERATED:", picks_total)
+    # -----------------------------
+    # START REPORT (/STATUS STYLE)
+    # -----------------------------
+
+    send_start_report(matches_count, all_picks)
 
     save_data(history)
 
