@@ -2,12 +2,20 @@ from datetime import datetime
 from model.predict import predict
 
 
+# -----------------------------
+# VALUE CALC
+# -----------------------------
+
 def calculate_value(prob, odds):
     return (prob * odds) - 1
 
 
-# 🔹 Guardar historial de cuotas
-def track_odds(history, match_name, odds):
+# -----------------------------
+# TRACK ODDS HISTORY
+# -----------------------------
+
+def track_odds(history, match_name, odds, match_date=None, match_time=None):
+
     now = datetime.utcnow().isoformat()
 
     if match_name not in history:
@@ -18,11 +26,21 @@ def track_odds(history, match_name, odds):
         "odds": odds
     })
 
+    if match_date or match_time:
+        history[match_name]["meta"] = {
+            "date": match_date,
+            "time": match_time
+        }
+
     return history
 
 
-# 🔹 Movimiento de cuota
+# -----------------------------
+# LINE MOVEMENT
+# -----------------------------
+
 def get_line_movement(history, match_name):
+
     data = history.get(match_name, {}).get("over25", [])
 
     if len(data) < 2:
@@ -31,14 +49,18 @@ def get_line_movement(history, match_name):
     first = data[0]["odds"]
     last = data[-1]["odds"]
 
-    return first - last  # positivo = baja cuota
+    return first - last
 
 
-# 🔹 ANALISIS PRINCIPAL
+# -----------------------------
+# MAIN ANALYSIS
+# -----------------------------
+
 def analyze_match(match, history, home_stats, away_stats):
+
     picks = []
 
-    match_name = f'{match["home_team"]} vs {match["away_team"]}'
+    match_name = f"{match['home_team']} vs {match['away_team']}"
 
     for bookmaker in match.get("bookmakers", []):
         for market in bookmaker.get("markets", []):
@@ -46,19 +68,16 @@ def analyze_match(match, history, home_stats, away_stats):
             if market["key"] != "totals":
                 continue
 
-            for outcome in market["outcomes"]:
+            for outcome in market.get("outcomes", []):
 
                 if outcome["name"] == "Over" and outcome["point"] == 2.5:
 
                     odds = outcome["price"]
 
-                    # guardar historial
                     history = track_odds(history, match_name, odds)
 
-                    # movement
                     movement = get_line_movement(history, match_name)
 
-                    # modelo IA
                     prob_model = predict(
                         home_stats,
                         away_stats,
@@ -66,26 +85,24 @@ def analyze_match(match, history, home_stats, away_stats):
                         movement
                     )
 
-                    # value
                     value = calculate_value(prob_model, odds)
 
-                    # score final
-score = value + (movement * 0.15)
+                    score = value + (movement * 0.15)
 
-# 🔥 NUEVO FILTRO INTELIGENTE
-if (
-    prob_model >= 0.58 and      # modelo confía
-    value >= 0.06 and           # hay value real
-    movement > 0 and            # mercado confirma
-    score >= 0.10               # fuerza total mínima
-):
-    picks.append({
-        "match": match_name,
-        "odds": odds,
-        "prob": prob_model,
-        "value": value,
-        "movement": movement,
-        "score": score
-    })
+                    # FILTER (estable)
+                    if (
+                        prob_model >= 0.58 and
+                        value >= 0.06 and
+                        movement > 0 and
+                        score >= 0.10
+                    ):
+                        picks.append({
+                            "match": match_name,
+                            "odds": odds,
+                            "prob": prob_model,
+                            "value": value,
+                            "movement": movement,
+                            "score": score
+                        })
 
     return picks, history
