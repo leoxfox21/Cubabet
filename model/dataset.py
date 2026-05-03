@@ -3,7 +3,7 @@ import os
 
 FILE = "data/dataset.csv"
 
-def save_example(home_stats, away_stats, result_goals, odds):
+def save_example(home_stats, away_stats, result_goals, odds, movement):
 
     row = [
         home_stats["attack"],
@@ -11,6 +11,7 @@ def save_example(home_stats, away_stats, result_goals, odds):
         away_stats["attack"],
         away_stats["defense"],
         odds,
+        movement,
         result_goals > 2.5
     ]
 
@@ -26,6 +27,7 @@ def save_example(home_stats, away_stats, result_goals, odds):
                 "away_attack",
                 "away_defense",
                 "odds",
+                "movement",
                 "target"
             ])
 
