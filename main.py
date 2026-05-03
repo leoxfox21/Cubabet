@@ -1,6 +1,6 @@
 import json
 from api.odds import get_odds
-from api.stats import get_team_stats
+from api.stats import get_team_stats, get_last_match_goals
 from api.mapping import find_team_id
 from logic.analyzer import analyze_match
 from bot.telegram import send_message
@@ -32,25 +32,23 @@ def main():
         home_id = find_team_id(home_name)
         away_id = find_team_id(away_name)
 
-        # si no encuentra equipo → saltar
         if not home_id or not away_id:
             continue
 
-        # obtener stats reales
+        # stats reales
         home_stats = get_team_stats(home_id)
         away_stats = get_team_stats(away_id)
 
-        # analizar picks
-        picks, history = analyze_match(match, history, home_stats, away_stats)
-
-        # 🔹 GUARDAR DATASET (temporal, luego lo mejoramos)
-        expected_goals = (
-            home_stats["attack"] + away_stats["attack"]
+        # análisis
+        picks, history = analyze_match(
+            match, history, home_stats, away_stats
         )
 
-        result_goals = expected_goals  # ⚠️ placeholder
+        # 🔹 DATASET REAL
+        result_goals = get_last_match_goals(home_id)
 
-        save_example(home_stats, away_stats, result_goals)
+        if result_goals is not None:
+            save_example(home_stats, away_stats, result_goals)
 
         # enviar picks
         for pick in picks:
